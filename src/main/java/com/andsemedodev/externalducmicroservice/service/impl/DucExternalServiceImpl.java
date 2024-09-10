@@ -20,18 +20,22 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
 public class DucExternalServiceImpl implements DucExternalService {
+    private final Logger logger = Logger.getLogger(DucExternalServiceImpl.class.getName());
+
     private final WebClient webClient = WebClient.builder().build();
     private String token = "160891a0-c761-377a-b922-a39a420929b4";
 
     @Override
     public CreateDucResponseDto createDuc(DucRequestDto requestDto) {
-        String url = "https://gateway-pdex.gov.cv/t/financas.gov/rubricaidduc/1.0.0/processBancaArrayId";
+        logger.info("Creating duc");
 
+        String url = "https://gateway-pdex.gov.cv/t/financas.gov/rubricaidduc/1.0.0/processBancaArrayId";
 
         // TODO - search for rubricas in DB by its ID and return cod rubrica
 
@@ -55,8 +59,10 @@ public class DucExternalServiceImpl implements DucExternalService {
         ResponseEntity<GenerateDucResponse> result = pedexRequest(url, new RubricaRequest(processBancaArrayId));
 
         if (result.getStatusCode().is2xxSuccessful()) {
+            logger.info("Request successful to pedex");
             GenerateDucResponse ducResponse = result.getBody();
             String pSaida = ducResponse.getDucByIdRubricas().getDucByIdRubrica().getpSaida();
+            logger.info("Saida: " + pSaida);
 
             return new CreateDucResponseDto(
                     extractXmlValue(pSaida, "DUC"),
@@ -74,6 +80,7 @@ public class DucExternalServiceImpl implements DucExternalService {
 
 
     private String extractXmlValue(String input, String tag) {
+        logger.info("extracting xml with input " + input + " and tag " + tag);
         Pattern pattern = Pattern.compile("<" + tag + ">(.*?)</" + tag + ">");
         Matcher matcher = pattern.matcher(input);
         if (matcher.find()) {
@@ -83,6 +90,8 @@ public class DucExternalServiceImpl implements DucExternalService {
     }
 
     private ResponseEntity<GenerateDucResponse> pedexRequest(String url, Object body) {
+        logger.info("Making request to pedex with body {}" + body);
+
         ResponseEntity<GenerateDucResponse> result =
                 webClient.post()
                 .uri(url)
