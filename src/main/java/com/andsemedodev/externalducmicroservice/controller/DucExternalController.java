@@ -1,6 +1,7 @@
 package com.andsemedodev.externalducmicroservice.controller;
 
-import com.andsemedodev.externalducmicroservice.dto.DucTransactionRequestDto;
+import com.andsemedodev.externalducmicroservice.dto.CreateDucResponseDto;
+import com.andsemedodev.externalducmicroservice.dto.DucRequestDto;
 import com.andsemedodev.externalducmicroservice.service.DucExternalService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -19,8 +20,8 @@ public class DucExternalController {
     }
 
     @PostMapping
-    public ResponseEntity<String> createDuc(@Valid @RequestBody DucTransactionRequestDto requestDto) {
-        return ResponseEntity.ok("Request received successfully");
+    public ResponseEntity<CreateDucResponseDto> createDuc(@Valid @RequestBody DucRequestDto requestDto) {
+        return ResponseEntity.ok(ducExternalService.createDuc(requestDto));
     }
 
 }
