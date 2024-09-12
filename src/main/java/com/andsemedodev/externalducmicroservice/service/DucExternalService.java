@@ -2,10 +2,11 @@ package com.andsemedodev.externalducmicroservice.service;
 
 import com.andsemedodev.externalducmicroservice.dto.CreateDucResponseDto;
 import com.andsemedodev.externalducmicroservice.dto.DucRequestDto;
-import com.andsemedodev.externalducmicroservice.service.impl.responses.GenerateDucResponse;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
+import com.andsemedodev.externalducmicroservice.dto.GetDucByNumberResponseDto;
+
+import java.io.IOException;
 
 public interface DucExternalService {
     CreateDucResponseDto createDuc(DucRequestDto requestDto);
+    GetDucByNumberResponseDto getDucPdfByNumber(String ducNumber) throws IOException;
 }

@@ -1,4 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
 
 duc:
   service-link: https://api-pdex.gov.cv:8242/t/financas.gov/mfservicesduccreatev3/1.0.3/
   token: 160891a0-c761-377a-b922-a39a420929b4
+  pEmail: odair.fortes@mf.gov.cv
+
+server:
+  error:
+    include-message: always
