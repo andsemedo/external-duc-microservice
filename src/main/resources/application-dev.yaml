@@ -19,6 +19,10 @@ duc:
   token: 160891a0-c761-377a-b922-a39a420929b4
   pEmail: odair.fortes@mf.gov.cv
 
+auth:
+  username: admin
+  password: 123456789
+
 server:
   error:
     include-message: always
