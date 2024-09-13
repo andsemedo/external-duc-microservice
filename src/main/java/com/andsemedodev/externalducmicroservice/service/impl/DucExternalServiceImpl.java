@@ -55,6 +55,7 @@ public class DucExternalServiceImpl implements DucExternalService {
         String url = "https://gateway-pdex.gov.cv/t/financas.gov/rubricaidduc/1.0.0/processBancaArrayId";
 
         // TODO - search for rubricas in Strapi CMS by its ID and return cod rubrica
+        // TODO - cache the strapi data
 
         // map p_id_rubricas
         List<Rubricas> rubricas = requestDto.getRubricas();

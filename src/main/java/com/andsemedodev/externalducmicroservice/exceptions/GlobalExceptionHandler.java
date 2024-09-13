@@ -25,7 +25,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public APIResponse<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+    public ResponseEntity<APIResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        APIResponse response = new APIResponse();
+        response.setStatus(false);
+        response.setStatusText(HttpStatus.BAD_REQUEST.name());
+
         Map<String, String> mapErros = new HashMap<>();
 
         ex.getBindingResult().getFieldErrors().forEach(error -> {
@@ -34,10 +38,18 @@ public class GlobalExceptionHandler {
             mapErros.put(fieldName, errorMessage);
         });
         logger.error(ex.getLocalizedMessage());
+        response.setDetails(Map.of("validation", mapErros));
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DucRequestValidatorException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public APIResponse<Map<String, String>> handleDucRequestValidatorException(DucRequestValidatorException ex) {
         return new APIResponse.buildAPIResponse<Map<String, String>>()
                 .setStatus(false)
                 .setStatusText(HttpStatus.BAD_REQUEST.name())
-                .setDetails(mapErros).builder();
+                .setDetails(ex.getErrors())
+                .builder();
     }
 
     @ExceptionHandler(RecordNotFoundException.class)

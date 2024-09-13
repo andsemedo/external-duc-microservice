@@ -11,6 +11,15 @@ services:
       - "5400:5432"
     volumes:
       - duc_db_data:/var/lib/postgresql/duc_db_data
+  redis:
+    container_name: redis
+    image: redis:7.4.0-alpine
+    environment:
+      - REDIS_PASSWORD=password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
 
 volumes:
   duc_db_data:
