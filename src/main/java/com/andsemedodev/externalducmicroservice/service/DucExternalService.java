@@ -2,11 +2,14 @@ package com.andsemedodev.externalducmicroservice.service;
 
 import com.andsemedodev.externalducmicroservice.dto.CreateDucResponseDto;
 import com.andsemedodev.externalducmicroservice.dto.DucRequestDto;
+import com.andsemedodev.externalducmicroservice.dto.DucResponseDto;
 import com.andsemedodev.externalducmicroservice.dto.GetDucByNumberResponseDto;
 
 import java.io.IOException;
+import java.util.List;
 
 public interface DucExternalService {
-    CreateDucResponseDto createDuc(DucRequestDto requestDto);
-    GetDucByNumberResponseDto getDucPdfByNumber(String ducNumber) throws IOException;
+    CreateDucResponseDto createDucByTransacao(DucRequestDto requestDto);
+    CreateDucResponseDto createDucByArrayIdRubrica(DucRequestDto requestDto);
+    List<DucResponseDto> getAllDucs();
 }

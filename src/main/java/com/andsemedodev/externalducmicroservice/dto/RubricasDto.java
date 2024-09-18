@@ -1,6 +1,6 @@
 package com.andsemedodev.externalducmicroservice.dto;
 
-public record Rubricas(
+public record RubricasDto(
         Integer id,
         Integer valor
 ) {

@@ -3,6 +3,8 @@ package com.andsemedodev.externalducmicroservice.service.impl.rubrica_request;
 import com.andsemedodev.externalducmicroservice.dto.DucRequestDto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.math.BigInteger;
+
 public class ProcessBancaArrayId {
     @JsonProperty("p_valor")
     private int pValor;
@@ -13,7 +15,7 @@ public class ProcessBancaArrayId {
     @JsonProperty("p_email")
     private String pEmail;
     @JsonProperty("p_nif")
-    private int pNif;
+    private BigInteger pNif;
     @JsonProperty("p_obs")
     private String pObs;
     @JsonProperty("p_id_rubricas")
@@ -24,7 +26,7 @@ public class ProcessBancaArrayId {
     public ProcessBancaArrayId() {
     }
 
-    public ProcessBancaArrayId(int pValor, String pMoeda, int pRecebedoria, String pEmail, int pNif, String pObs, String pIdRubricas, String pVlRubricas) {
+    public ProcessBancaArrayId(int pValor, String pMoeda, int pRecebedoria, String pEmail, BigInteger pNif, String pObs, String pIdRubricas, String pVlRubricas) {
         this.pValor = pValor;
         this.pMoeda = pMoeda;
         this.pRecebedoria = pRecebedoria;
@@ -67,11 +69,11 @@ public class ProcessBancaArrayId {
         this.pEmail = pEmail;
     }
 
-    public int getpNif() {
+    public BigInteger getpNif() {
         return pNif;
     }
 
-    public void setpNif(int pNif) {
+    public void setpNif(BigInteger pNif) {
         this.pNif = pNif;
     }
 

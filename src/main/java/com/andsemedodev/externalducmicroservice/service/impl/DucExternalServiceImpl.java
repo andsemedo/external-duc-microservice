@@ -1,23 +1,28 @@
 package com.andsemedodev.externalducmicroservice.service.impl;
 
-import com.andsemedodev.externalducmicroservice.dto.CreateDucResponseDto;
+import com.andsemedodev.externalducmicroservice.dto.*;
 import com.andsemedodev.externalducmicroservice.exceptions.CustomInternalServerErrorException;
 import com.andsemedodev.externalducmicroservice.exceptions.RecordNotFoundException;
 import com.andsemedodev.externalducmicroservice.model.Duc;
+import com.andsemedodev.externalducmicroservice.model.DucRubrica;
 import com.andsemedodev.externalducmicroservice.repository.DucRepository;
+import com.andsemedodev.externalducmicroservice.repository.DucRubricaRepository;
+import com.andsemedodev.externalducmicroservice.service.impl.responses.DucByTransacaoResponse;
 import com.andsemedodev.externalducmicroservice.service.impl.responses.GenerateDucResponse;
-import com.andsemedodev.externalducmicroservice.dto.GetDucByNumberResponseDto;
 import com.andsemedodev.externalducmicroservice.service.impl.rubrica_request.ProcessBancaArrayId;
-import com.andsemedodev.externalducmicroservice.dto.DucRequestDto;
-import com.andsemedodev.externalducmicroservice.dto.Rubricas;
 import com.andsemedodev.externalducmicroservice.exceptions.EmptyRubricasException;
 import com.andsemedodev.externalducmicroservice.service.DucExternalService;
 import com.andsemedodev.externalducmicroservice.service.impl.rubrica_request.RubricaRequest;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileCopyUtils;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriBuilder;
 import reactor.core.publisher.Mono;
 
 import java.io.File;
@@ -27,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
@@ -38,29 +44,70 @@ public class DucExternalServiceImpl implements DucExternalService {
     private final Logger logger = Logger.getLogger(DucExternalServiceImpl.class.getName());
 
     private final WebClient webClient = WebClient.builder().build();
-    private String token = "160891a0-c761-377a-b922-a39a420929b4";
+    private final ObjectMapper objectMapper;
+
+    @Value("${duc.token}")
+    private String token;
     @Value("${duc.pEmail}")
     private String pEmail;
+    @Value("${duc.by-rubrica-url}")
+    private String byRubricaUrl;
+    @Value("${duc.by-transacao-url}")
+    private String byTransacaoUrl;
+    private final String moeda = "CVE";
 
     private final DucRepository ducRepository;
+    private final DucRubricaRepository ducRubricaRepository;
 
-    public DucExternalServiceImpl(DucRepository ducRepository) {
+    public DucExternalServiceImpl(ObjectMapper objectMapper, DucRepository ducRepository, DucRubricaRepository ducRubricaRepository) {
+        this.objectMapper = objectMapper;
         this.ducRepository = ducRepository;
+        this.ducRubricaRepository = ducRubricaRepository;
     }
 
     @Override
-    public CreateDucResponseDto createDuc(DucRequestDto requestDto) {
-        logger.info("Creating DUC");
+    public CreateDucResponseDto createDucByTransacao(DucRequestDto requestDto) {
+        logger.info("Creating DUC By Transacao");
+        // TODO - search for codTransacao1 e codTransacao2 in StrapiCMS
+        // TODO - cache the strapi data
 
-        String url = "https://gateway-pdex.gov.cv/t/financas.gov/rubricaidduc/1.0.0/processBancaArrayId";
+        ResponseEntity<DucByTransacaoResponse> response = createDucRequestByTransacao(byTransacaoUrl, requestDto);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            // save duc info request in the DB
+            saveDucInfoInDB(requestDto);
+            logger.info("Request successful to pedex");
+            DucByTransacaoResponse body = response.getBody();
+            if (body != null) {
+                String pSaida = body.getPSaida().getpSaida();
+                return new CreateDucResponseDto(
+                        extractXmlValue(pSaida, "DUC"),
+                        extractXmlValue(pSaida, "CODIGO"),
+                        extractXmlValue(pSaida, "DESCRICAO"),
+                        extractXmlValue(pSaida, "ENTIDADE"),
+                        extractXmlValue(pSaida, "REFERENCIA"),
+                        extractXmlValue(pSaida, "MONTANTE")
+                );
+            }
+            logger.info("Empty response body");
+            throw new RecordNotFoundException("Empty response body");
+        }
+
+        logger.info("Error while generating duc");
+        throw new CustomInternalServerErrorException("An error occurred while trying to create duc with status code: ");
+    }
+
+    @Override
+    public CreateDucResponseDto createDucByArrayIdRubrica(DucRequestDto requestDto) {
+        logger.info("Creating DUC By Array Id Rubrica");
 
         // TODO - search for rubricas in Strapi CMS by its ID and return cod rubrica
         // TODO - cache the strapi data
 
         // map p_id_rubricas
-        List<Rubricas> rubricas = requestDto.getRubricas();
+        List<RubricasDto> rubricas = requestDto.getRubricas();
         if (rubricas == null || rubricas.isEmpty())
-            throw new EmptyRubricasException("Rubricas nao pode ser nulo ou vazio");
+            throw new EmptyRubricasException("Rubricas nao pode ser nulo ou vazio na criação de DUC por array id rubricas");
         StringBuilder idRubricas = new StringBuilder();
         StringBuilder vlRubricas = new StringBuilder();
 
@@ -69,37 +116,33 @@ public class DucExternalServiceImpl implements DucExternalService {
             vlRubricas.append(r.valor()).append(";");
         });
 
-        // save duc info request in the DB
-        logger.info("Saving DUC request info in DB");
-        Duc duc = new Duc();
-        duc.setInstituicao(requestDto.getInstituicao());
-        duc.setDepartamento(requestDto.getDepartamento());
-        duc.setPlataforma(requestDto.getPlataforma());
-        duc.setNotas(requestDto.getNotas());
-        ducRepository.save(duc);
-        logger.info("DUC info saved in DB");
-
         ProcessBancaArrayId processBancaArrayId = new ProcessBancaArrayId(
-                requestDto.getpValor(), "CVE", 223, pEmail,
+                requestDto.getpValor(), moeda, 223, pEmail,
                 requestDto.getpNif(), requestDto.getpObs(), idRubricas.toString(), vlRubricas.toString()
         );
 
-        ResponseEntity<GenerateDucResponse> result = createDucRequest(url, new RubricaRequest(processBancaArrayId));
+        ResponseEntity<GenerateDucResponse> result = createDucRequestByArrayIdRubricas(byRubricaUrl, new RubricaRequest(processBancaArrayId));
 
         if (result.getStatusCode().is2xxSuccessful()) {
+            // save duc info request in the DB
+            saveDucInfoInDB(requestDto);
             logger.info("Request successful to pedex");
             GenerateDucResponse ducResponse = result.getBody();
-            String pSaida = ducResponse.getDucByIdRubricas().getDucByIdRubrica().getpSaida();
-            logger.info("Saida: " + pSaida);
+            if (ducResponse != null) {
+                String pSaida = ducResponse.getDucByIdRubricas().getDucByIdRubrica().getpSaida();
+                logger.info("Saida: " + pSaida);
 
-            return new CreateDucResponseDto(
-                    extractXmlValue(pSaida, "DUC"),
-                    extractXmlValue(pSaida, "CODIGO"),
-                    extractXmlValue(pSaida, "DESCRICAO"),
-                    extractXmlValue(pSaida, "ENTIDADE"),
-                    extractXmlValue(pSaida, "REFERENCIA"),
-                    extractXmlValue(pSaida, "MONTANTE")
-            );
+                return new CreateDucResponseDto(
+                        extractXmlValue(pSaida, "DUC"),
+                        extractXmlValue(pSaida, "CODIGO"),
+                        extractXmlValue(pSaida, "DESCRICAO"),
+                        extractXmlValue(pSaida, "ENTIDADE"),
+                        extractXmlValue(pSaida, "REFERENCIA"),
+                        extractXmlValue(pSaida, "MONTANTE")
+                );
+            }
+            logger.info("Empty response body");
+            throw new RecordNotFoundException("Empty response body");
 
         }
 
@@ -108,35 +151,51 @@ public class DucExternalServiceImpl implements DucExternalService {
     }
 
     @Override
-    public GetDucByNumberResponseDto getDucPdfByNumber(String ducNumber) throws IOException {
-        String url = "http://reportsta.gov.cv/reports/rwservlet?SIGOF_DUC&p_nu_duc=";
-
-        ResponseEntity<byte[]> response = consultarDucRequest(url, ducNumber);
-        if (response.getStatusCode().is2xxSuccessful()) {
-            byte[] ducPdfBytes = response.getBody();
-            logger.info("response from consulting duc with body: "+ Arrays.toString(ducPdfBytes));
-            if (ducPdfBytes != null) {
-                // C:\var\files\duc\
-                Path ducDirectory = Paths.get("/var/files/duc");
-                if (!Files.exists(ducDirectory)) {
-                    logger.info("Creating duc directory to save pdfs");
-                    Files.createDirectories(ducDirectory);
+    public List<DucResponseDto> getAllDucs() {
+        List<Duc> ducs = ducRepository.findAll();
+        if (!ducs.isEmpty()) {
+            return ducs.stream().map(duc -> {
+                List<DucRubrica> rubricaList = duc.getRubricaList();
+                List<RubricaResponseDto> rubricaResponseDtos = new ArrayList<>();
+                if (!rubricaList.isEmpty()) {
+                    rubricaResponseDtos = rubricaList.stream().map(r -> new RubricaResponseDto(
+                            r.getCodRubrica(), r.getValor()
+                    )).toList();
                 }
 
-                String pdfFileNameDifer = ducNumber + "-" + Instant.now().getEpochSecond() + ".pdf";
-                File pdfFile = new File(ducDirectory.toFile(), "duc-"+pdfFileNameDifer+".pdf");
-                try(FileOutputStream fos = new FileOutputStream(pdfFile)) {
-                    logger.info("Copying pdf to "+pdfFile.getAbsolutePath());
-                    FileCopyUtils.copy(ducPdfBytes, fos);
-                    return new GetDucByNumberResponseDto(pdfFile.getAbsolutePath());
-                } catch (IOException e) {
-                    throw new RuntimeException("Failed to save PDF "+e.getMessage());
-                }
-            }
-            throw new RecordNotFoundException("DUC with number "+ducNumber+" not found");
+                 return new DucResponseDto(duc.getId(), duc.getpRecebedoria(), duc.getpEmail(), String.valueOf(duc.getpNif()),
+                        duc.getpMoeda(), duc.getpValor(), duc.getpObs(), duc.getpCodTransacao(), duc.getpCodTransacao1(),
+                        duc.getpValor1(), duc.getpCodTransacao2(), duc.getpValor2(), rubricaResponseDtos, duc.getInstituicao(),
+                        duc.getDepartamento(), duc.getPlataforma(), duc.getNotas(), duc.getCreatedAt());
+            }).toList();
         }
-        logger.info("Error while consulting duc: "+ Arrays.toString(response.getBody()));
-        throw new CustomInternalServerErrorException("An error occurred while trying to consult duc with status code: "+response.getStatusCode());
+        return List.of();
+    }
+
+    private void saveDucInfoInDB(DucRequestDto requestDto) {
+        logger.info("Saving DUC request info in DB");
+        Duc duc = new Duc(
+            requestDto.getpValor(), "CVE", requestDto.getpRecebedoria(), pEmail,
+                requestDto.getpNif(), requestDto.getpObs(), requestDto.getpCodTransacao(),
+                requestDto.getpCodTransacao1(), requestDto.getpValor1(), requestDto.getpCodTransacao2(),
+                requestDto.getpValor2(), requestDto.getInstituicao(), requestDto.getDepartamento(),
+                requestDto.getPlataforma(), requestDto.getNotas()
+        );
+        Duc savedDuc = ducRepository.save(duc);
+        if (requestDto.getRubricas() != null && !requestDto.getRubricas().isEmpty()) {
+
+            // TODO get codRuricas from Strapi
+            logger.info("RUBRICAS LENGTH "+requestDto.getRubricas().size());
+            requestDto.getRubricas().forEach(r -> {
+                DucRubrica ducRubrica = new DucRubrica();
+                ducRubrica.setDuc(savedDuc);
+                ducRubrica.setCodRubrica(r.id().toString());
+                ducRubrica.setValor(r.valor());
+                ducRubricaRepository.save(ducRubrica);
+            });
+        }
+
+        logger.info("DUC info saved in DB");
     }
 
     private String extractXmlValue(String input, String tag) {
@@ -149,7 +208,7 @@ public class DucExternalServiceImpl implements DucExternalService {
         return "";
     }
 
-    private ResponseEntity<GenerateDucResponse> createDucRequest(String url, Object body) {
+    private ResponseEntity<GenerateDucResponse> createDucRequestByArrayIdRubricas(String url, Object body) {
         logger.info("Making request to create duc with body: " + body.toString());
 
         ResponseEntity<GenerateDucResponse> result =
@@ -163,17 +222,35 @@ public class DucExternalServiceImpl implements DucExternalService {
         return result;
     }
 
-    private ResponseEntity<byte[]> consultarDucRequest(String url, String ducNumber) {
-        logger.info("Making request to consult duc ");
+    private ResponseEntity<DucByTransacaoResponse> createDucRequestByTransacao(String url, DucRequestDto dto) {
+        logger.info("Making request to create duc by transacao ");
 
-        ResponseEntity<byte[]> response = webClient.get()
-                .uri(url+ducNumber)
-                .retrieve()
-                .toEntity(byte[].class)
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("p_valor", String.valueOf(dto.getpValor()));
+        params.add("p_moeda", moeda);
+        params.add("p_recebedoria", dto.getpRecebedoria());
+        params.add("p_email", pEmail);
+        params.add("p_nif", String.valueOf(dto.getpNif()));
+        params.add("p_obs", dto.getpObs());
+        params.add("p_codTransacao", dto.getpCodTransacao());
+        params.add("p_codTransacao1", dto.getpCodTransacao1());
+        params.add("p_valor1", String.valueOf(dto.getpValor1()));
+        params.add("p_codTransacao2", dto.getpCodTransacao2());
+        params.add("p_valor2", String.valueOf(dto.getpValor2()));
+        params.add("accept", "application/json");
+
+        WebClient webClient1 = WebClient.builder().baseUrl(url).build();
+
+        ResponseEntity<DucByTransacaoResponse> result = webClient1.post()
+                .uri(uriBuilder -> uriBuilder
+                        .queryParams(params)
+                        .build())
+                .header("Authorization", "Bearer " + this.token)
+                .exchangeToMono(response -> response.toEntity(DucByTransacaoResponse.class))
                 .onErrorResume(e -> Mono.error(new RuntimeException(e.getMessage())))
                 .block();
 
-        return response;
+        return result;
 
     }
 

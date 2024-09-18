@@ -2,18 +2,15 @@ package com.andsemedodev.externalducmicroservice.service.impl.responses;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class DucByIdRubricas {
-    @JsonProperty("ducByIdRubrica")
+public class DucByTransacaoResponse {
+    @JsonProperty("p_saida")
     private DucPSaida ducPSaida;
 
-    public DucByIdRubricas() {
-    }
-
-    public DucPSaida getDucByIdRubrica() {
+    public DucPSaida getPSaida() {
         return ducPSaida;
     }
 
-    public void setDucByIdRubrica(DucPSaida ducPSaida) {
+    public void setPSaida(DucPSaida ducPSaida) {
         this.ducPSaida = ducPSaida;
     }
 }
