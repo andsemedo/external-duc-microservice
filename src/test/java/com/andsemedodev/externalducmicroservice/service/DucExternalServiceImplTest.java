@@ -27,7 +27,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -60,7 +59,7 @@ class DucExternalServiceImplTest {
     private Environment env;
 
     @Autowired
-    private DucExternalServiceImpl ducExternalService;
+    private DucExternalServiceImpl underTest;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -84,11 +83,11 @@ class DucExternalServiceImplTest {
         String baseUrlRubrica = String.format("http://localhost:%s", mockWebServerRubrica.getPort());
         String baseUrlTransacao = String.format("http://localhost:%s", mockWebServerTransacao.getPort());
 
-        ReflectionTestUtils.setField(ducExternalService, "byRubricaUrl", baseUrlRubrica + "/t/financas.gov/rubricaidduc/1.0.0/processBancaArrayId");
-        ReflectionTestUtils.setField(ducExternalService, "byTransacaoUrl", baseUrlTransacao + "/t/financas.gov/mfservicesduccreatev3/1.0.3/postProcessBanca");
+        ReflectionTestUtils.setField(underTest, "byRubricaUrl", baseUrlRubrica + "/t/financas.gov/rubricaidduc/1.0.0/processBancaArrayId");
+        ReflectionTestUtils.setField(underTest, "byTransacaoUrl", baseUrlTransacao + "/t/financas.gov/mfservicesduccreatev3/1.0.3/postProcessBanca");
 
         WebClient webClient = WebClient.builder().build();
-        ReflectionTestUtils.setField(ducExternalService, "webClient", webClient);
+        ReflectionTestUtils.setField(underTest, "webClient", webClient);
     }
 
     @Test
@@ -122,7 +121,7 @@ class DucExternalServiceImplTest {
         requestDto.setNotas("Any notes");
         requestDto.setFlagIsByTransacao(true);
         // Act
-        CreateDucResponseDto result = ducExternalService.createDucByTransacao(requestDto);
+        CreateDucResponseDto result = underTest.createDucByTransacao(requestDto);
 
         // Assert
         assertNotNull(result);
@@ -139,7 +138,7 @@ class DucExternalServiceImplTest {
         DucRequestDto requestDto = new DucRequestDto();
 
         // Act & Assert
-        assertThrows(CustomInternalServerErrorException.class, () -> ducExternalService.createDucByTransacao(requestDto));
+        assertThrows(CustomInternalServerErrorException.class, () -> underTest.createDucByTransacao(requestDto));
     }
 
 //    @Test
@@ -207,7 +206,7 @@ class DucExternalServiceImplTest {
         requestDto.setFlagIsByTransacao(false);
 
         // Act
-        CreateDucResponseDto result = ducExternalService.createDucByArrayIdRubrica(requestDto);
+        CreateDucResponseDto result = underTest.createDucByArrayIdRubrica(requestDto);
 
         // Assert
         assertNotNull(result);
@@ -278,7 +277,7 @@ class DucExternalServiceImplTest {
         // ...When
         when(ducRepository.findAll()).thenReturn(List.of(duc, duc1));
 
-        List<DucResponseDto> allDucs = ducExternalService.getAllDucs();
+        List<DucResponseDto> allDucs = underTest.getAllDucs();
 
         // ...Then
         assertNotNull(allDucs);
