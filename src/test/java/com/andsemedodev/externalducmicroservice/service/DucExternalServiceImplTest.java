@@ -2,6 +2,7 @@ package com.andsemedodev.externalducmicroservice.service;
 
 import com.andsemedodev.externalducmicroservice.dto.CreateDucResponseDto;
 import com.andsemedodev.externalducmicroservice.dto.DucRequestDto;
+import com.andsemedodev.externalducmicroservice.dto.DucResponseDto;
 import com.andsemedodev.externalducmicroservice.dto.RubricasDto;
 import com.andsemedodev.externalducmicroservice.exceptions.CustomInternalServerErrorException;
 import com.andsemedodev.externalducmicroservice.model.Duc;
@@ -34,7 +35,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -189,11 +192,11 @@ class DucExternalServiceImplTest {
         requestDto.setpRecebedoria("299");
         requestDto.setpNif(BigInteger.valueOf(123792479));
         requestDto.setpObs("Some Obs");
-        requestDto.setpCodTransacao("CDTRANSDUPLO");
-        requestDto.setpCodTransacao1("MCAII01");
-        requestDto.setpValor1(1250);
-        requestDto.setpCodTransacao2("MCAII02");
-        requestDto.setpValor2(350);
+        requestDto.setpCodTransacao(null);
+        requestDto.setpCodTransacao1(null);
+        requestDto.setpValor1(null);
+        requestDto.setpCodTransacao2(null);
+        requestDto.setpValor2(null);
         RubricasDto rubrica1 = new RubricasDto(1, 1350);
         RubricasDto rubrica2 = new RubricasDto(2, 250);
         requestDto.setRubricas(List.of(rubrica1, rubrica2));
@@ -212,6 +215,75 @@ class DucExternalServiceImplTest {
 
         verify(ducRepository).save(any(Duc.class));
         verify(ducRubricaRepository, times(2)).save(any(DucRubrica.class));
+    }
+
+    @Test
+    void getAllDucs_Success() {
+        // ...Given
+        Duc duc = new Duc();
+        duc.setId(UUID.randomUUID());
+        duc.setpValor(1600);
+        duc.setpMoeda("CVE");
+        duc.setpRecebedoria("299");
+        duc.setpEmail("celina@mf.gov.cv");
+        duc.setpNif(BigInteger.valueOf(123792479));
+        duc.setpObs("Some Obs");
+        duc.setpCodTransacao("CDTRANSDUPLO");
+        duc.setpCodTransacao1("MIF01");
+        duc.setpValor1(1350);
+        duc.setpCodTransacao2("MIF02");
+        duc.setpValor2(250);
+        duc.setInstituicao("PN");
+        duc.setDepartamento("DEF");
+        duc.setPlataforma("SARBA");
+        duc.setNotas("Some notes");
+        duc.setRubricaList(List.of());
+        duc.setCreatedAt(LocalDateTime.now());
+        duc.setUpdatedAt(LocalDateTime.now());
+
+        Duc duc1 = new Duc();
+        duc1.setId(UUID.randomUUID());
+        duc1.setpValor(1600);
+        duc1.setpMoeda("CVE");
+        duc1.setpRecebedoria("299");
+        duc1.setpEmail("celina@mf.gov.cv");
+        duc1.setpNif(BigInteger.valueOf(123792479));
+        duc1.setpObs("Some Obs");
+        duc1.setpCodTransacao(null);
+        duc1.setpCodTransacao1(null);
+        duc1.setpValor1(null);
+        duc1.setpCodTransacao2(null);
+        duc1.setpValor2(null);
+        duc1.setInstituicao("PN");
+        duc1.setDepartamento("DEF");
+        duc1.setPlataforma("SARBA");
+        duc1.setNotas("Some notes");
+        DucRubrica ducRubrica = new DucRubrica();
+        ducRubrica.setId(UUID.randomUUID());
+        ducRubrica.setCodRubrica("CodRub01");
+        ducRubrica.setValor(1350);
+        ducRubrica.setCreatedAt(LocalDateTime.now());
+        ducRubrica.setUpdatedAt(LocalDateTime.now());
+
+        DucRubrica ducRubrica1 = new DucRubrica();
+        ducRubrica1.setId(UUID.randomUUID());
+        ducRubrica1.setCodRubrica("CodRub02");
+        ducRubrica1.setValor(250);
+        ducRubrica1.setCreatedAt(LocalDateTime.now());
+        ducRubrica1.setUpdatedAt(LocalDateTime.now());
+        duc1.setRubricaList(List.of(ducRubrica, ducRubrica1));
+        duc1.setCreatedAt(LocalDateTime.now());
+        duc1.setUpdatedAt(LocalDateTime.now());
+
+        // ...When
+        when(ducRepository.findAll()).thenReturn(List.of(duc, duc1));
+
+        List<DucResponseDto> allDucs = ducExternalService.getAllDucs();
+
+        // ...Then
+        assertNotNull(allDucs);
+        assertEquals(2, allDucs.size());
+
     }
 
     // Add more tests as needed...
