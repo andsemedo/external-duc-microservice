@@ -1,10 +1,14 @@
 package com.andsemedodev.externalducmicroservice.service.impl;
 
+import com.andsemedodev.externalducmicroservice.config.RabbitMqConfig;
 import com.andsemedodev.externalducmicroservice.dto.*;
 import com.andsemedodev.externalducmicroservice.exceptions.CustomInternalServerErrorException;
 import com.andsemedodev.externalducmicroservice.exceptions.RecordNotFoundException;
 import com.andsemedodev.externalducmicroservice.model.Duc;
 import com.andsemedodev.externalducmicroservice.model.DucRubrica;
+import com.andsemedodev.externalducmicroservice.rabbitmq.FailedDucProducer;
+import com.andsemedodev.externalducmicroservice.rabbitmq.FailedDucRequest;
+import com.andsemedodev.externalducmicroservice.rabbitmq.RequestType;
 import com.andsemedodev.externalducmicroservice.repository.DucRepository;
 import com.andsemedodev.externalducmicroservice.repository.DucRubricaRepository;
 import com.andsemedodev.externalducmicroservice.service.impl.responses.DucByTransacaoResponse;
@@ -15,36 +19,35 @@ import com.andsemedodev.externalducmicroservice.service.DucExternalService;
 import com.andsemedodev.externalducmicroservice.service.impl.rubrica_request.RubricaRequest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.client.ExchangeFilterFunctions;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriBuilder;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.logging.Logger;
+import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
 public class DucExternalServiceImpl implements DucExternalService {
-    private final Logger logger = Logger.getLogger(DucExternalServiceImpl.class.getName());
+    private final Logger logger = LogManager.getLogger(this.getClass());
 
     private final WebClient webClient = WebClient.builder().build();
     private final ObjectMapper objectMapper;
+    private final RabbitTemplate rabbitTemplate;
 
     @Value("${duc.token}")
     private String token;
@@ -54,15 +57,20 @@ public class DucExternalServiceImpl implements DucExternalService {
     private String byRubricaUrl;
     @Value("${duc.by-transacao-url}")
     private String byTransacaoUrl;
+    @Value("${strapi.url}")
+    private String strapiUrl;
     private final String moeda = "CVE";
 
     private final DucRepository ducRepository;
     private final DucRubricaRepository ducRubricaRepository;
+    private final FailedDucProducer failedDucProducer;
 
-    public DucExternalServiceImpl(ObjectMapper objectMapper, DucRepository ducRepository, DucRubricaRepository ducRubricaRepository) {
+    public DucExternalServiceImpl(ObjectMapper objectMapper, DucRepository ducRepository, DucRubricaRepository ducRubricaRepository, RabbitTemplate rabbitTemplate, FailedDucProducer failedDucProducer) {
         this.objectMapper = objectMapper;
         this.ducRepository = ducRepository;
         this.ducRubricaRepository = ducRubricaRepository;
+        this.rabbitTemplate = rabbitTemplate;
+        this.failedDucProducer = failedDucProducer;
     }
 
     @Override
@@ -208,22 +216,45 @@ public class DucExternalServiceImpl implements DucExternalService {
         return "";
     }
 
-    private ResponseEntity<GenerateDucResponse> createDucRequestByArrayIdRubricas(String url, Object body) {
+    public ResponseEntity<GenerateDucResponse> createDucRequestByArrayIdRubricas(String url, RubricaRequest body) {
         logger.info("Making request to create duc with body: " + body.toString());
 
-        ResponseEntity<GenerateDucResponse> result =
-                webClient.post()
-                .uri(url)
-                .header("Authorization", "Bearer " + this.token)
-                .bodyValue(body)
-                .exchangeToMono(response -> response.toEntity(GenerateDucResponse.class))
-                .onErrorResume(e -> Mono.error(new RuntimeException(e.getMessage())))
-                .block();
-        return result;
+        try {
+            ResponseEntity<GenerateDucResponse> result =
+                    webClient.post()
+                            .uri(url)
+                            .header("Authorization", "Bearer " + this.token)
+                            .bodyValue(body)
+                            .exchangeToMono(response -> {
+                                if (response.statusCode().is2xxSuccessful()) {
+                                    return response.toEntity(GenerateDucResponse.class);
+                                } else {
+                                    return response.createException().flatMap(Mono::error);
+                                }
+                            })
+                            .block();
+            return result;
+        } catch (Exception e) {
+            logger.error("Failed to generate DUC by Rubrica " + e.getMessage());
+//            failedDucProducer.sendRequestMessage(body);
+
+            try {
+                String jsonBody = objectMapper.writeValueAsString(body);
+                FailedDucRequest failedDucRequest = new FailedDucRequest(RequestType.RUBRICA, jsonBody);
+                failedDucProducer.sendRequestMessage(objectMapper.writeValueAsString(failedDucRequest));
+            } catch (Exception jsonException) {
+                logger.error("Failed to serialize request for RabbitMQ: " + jsonException.getMessage());
+            }
+
+            throw new CustomInternalServerErrorException("Failed to generate DUC by Rubrica " + e.getMessage());
+        }
+
     }
 
-    private ResponseEntity<DucByTransacaoResponse> createDucRequestByTransacao(String url, DucRequestDto dto) {
+    public ResponseEntity<DucByTransacaoResponse> createDucRequestByTransacao(String url, DucRequestDto dto) {
         logger.info("Making request to create duc by transacao ");
+        // set request id
+        dto.setRequestId(UUID.randomUUID().toString());
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("p_valor", String.valueOf(dto.getpValor()));
@@ -239,19 +270,58 @@ public class DucExternalServiceImpl implements DucExternalService {
         params.add("p_valor2", String.valueOf(dto.getpValor2()));
         params.add("accept", "application/json");
 
-        WebClient webClient1 = WebClient.builder().baseUrl(url).build();
+        String newUrl = UriComponentsBuilder.fromHttpUrl(url)
+                .queryParams(params)
+                .build()
+                .toUriString();
 
-        ResponseEntity<DucByTransacaoResponse> result = webClient1.post()
-                .uri(uriBuilder -> uriBuilder
-                        .queryParams(params)
-                        .build())
-                .header("Authorization", "Bearer " + this.token)
-                .exchangeToMono(response -> response.toEntity(DucByTransacaoResponse.class))
-                .onErrorResume(e -> Mono.error(new RuntimeException(e.getMessage())))
+        WebClient webClient1 = WebClient.builder()
+                .baseUrl(url)
+                .build();
+
+        try {
+            ResponseEntity<DucByTransacaoResponse> result = webClient.post()
+                    .uri(newUrl)
+                    .header("Authorization", "Bearer " + this.token)
+                    .exchangeToMono(response -> {
+                        if (response.statusCode().is2xxSuccessful()) {
+                            return response.toEntity(DucByTransacaoResponse.class);
+                        } else {
+                            return response.createException().flatMap(Mono::error);
+                        }
+                    })
+                    .block();
+
+            return result;
+        } catch (Exception e) {
+            logger.error("Failed to generate DUC by Transacao " + e.getMessage());
+//            failedDucProducer.sendRequestMessage(dto);
+
+             try {
+                String jsonBody = objectMapper.writeValueAsString(dto);
+                FailedDucRequest failedDucRequest = new FailedDucRequest(RequestType.TRANSACAO, jsonBody);
+                failedDucProducer.sendRequestMessage(objectMapper.writeValueAsString(failedDucRequest));
+            } catch (Exception jsonException) {
+                logger.error("Failed to serialize request for RabbitMQ: " + jsonException.getMessage());
+            }
+//
+//            rabbitTemplate.convertAndSend(RabbitMqConfig.DUC_EXCHANGE, RabbitMqConfig.RETRY_DUC_REQUESTS, dto);
+            throw new CustomInternalServerErrorException("Failed to generate DUC by Transacao " + e.getMessage());
+        }
+
+
+    }
+
+    public ResponseEntity<String> executesStrapiQuery(String document){
+        ResponseEntity<String> result = this.webClient
+                .post()
+                .uri(strapiUrl)
+//                .header("Authorization", "Bearer " + strapiToken)
+                .bodyValue(Map.of("query", document))
+                .exchangeToMono(response -> response.toEntity(String.class))
                 .block();
 
         return result;
-
     }
 
 

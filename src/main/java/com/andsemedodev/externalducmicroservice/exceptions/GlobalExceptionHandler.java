@@ -25,7 +25,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<APIResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+    public ResponseEntity<APIResponse> handleValidationExceptions(MethodArgumentNotValidException ex, WebRequest request) {
         APIResponse response = new APIResponse();
         response.setStatus(false);
         response.setStatusText(HttpStatus.BAD_REQUEST.name());
@@ -44,7 +44,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DucRequestValidatorException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public APIResponse<Map<String, String>> handleDucRequestValidatorException(DucRequestValidatorException ex) {
+    public APIResponse<Map<String, String>> handleDucRequestValidatorException(DucRequestValidatorException ex, WebRequest request) {
         return new APIResponse.buildAPIResponse<Map<String, String>>()
                 .setStatus(false)
                 .setStatusText(HttpStatus.BAD_REQUEST.name())
@@ -54,7 +54,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RecordNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public APIResponse<String> handleRecordNotFoundException(RecordNotFoundException ex) {
+    public APIResponse<String> handleRecordNotFoundException(RecordNotFoundException ex, WebRequest request) {
         logger.error(ex.getLocalizedMessage());
         return new APIResponse.buildAPIResponse<String>()
                 .setStatus(false)
@@ -64,7 +64,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CustomInternalServerErrorException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public APIResponse<String> handleCustomInternalServerErrorException(CustomInternalServerErrorException ex) {
+    public APIResponse<String> handleCustomInternalServerErrorException(CustomInternalServerErrorException ex, WebRequest request) {
         logger.error(ex.getLocalizedMessage());
         return new APIResponse.buildAPIResponse<String>()
                 .setStatus(false)
@@ -73,7 +73,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public APIResponse<String> handleNoResourceFound(NoResourceFoundException ex) {
+    public APIResponse<String> handleNoResourceFound(NoResourceFoundException ex, WebRequest request) {
         logger.error(ex.getLocalizedMessage());
         return new APIResponse.buildAPIResponse<String>()
                 .setStatus(false)
@@ -83,7 +83,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public APIResponse<String> handleUnhandledExceptions(Exception ex) {
+    public APIResponse<String> handleUnhandledExceptions(Exception ex, WebRequest request) {
         logger.error(ex.getLocalizedMessage());
         logger.error(ex);
         return new APIResponse.buildAPIResponse<String>()
@@ -94,7 +94,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(EmptyRubricasException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public APIResponse<String> handleEmptyRubricas(EmptyRubricasException ex) {
+    public APIResponse<String> handleEmptyRubricas(EmptyRubricasException ex, WebRequest request) {
         logger.error(ex.getLocalizedMessage());
         return new APIResponse.buildAPIResponse<String>()
                 .setStatus(false)
@@ -110,6 +110,16 @@ public class GlobalExceptionHandler {
         return new APIResponse.buildAPIResponse<String>()
                 .setStatus(false)
                 .setStatusText(HttpStatus.UNAUTHORIZED.name())
+                .setDetails(ex.getMessage()).builder();
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public final APIResponse<String> illegalArgumentException(IllegalArgumentException ex, WebRequest request) {
+        logger.error(ex.getLocalizedMessage());
+        return new APIResponse.buildAPIResponse<String>()
+                .setStatus(false)
+                .setStatusText(HttpStatus.CONFLICT.name())
                 .setDetails(ex.getMessage()).builder();
     }
 }

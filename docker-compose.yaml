@@ -14,12 +14,24 @@ services:
   redis:
     container_name: redis
     image: redis:7.4.0-alpine
-    environment:
-      - REDIS_PASSWORD=password
     ports:
       - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning --requirepass password
     volumes:
       - redis_data:/data
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
 
 volumes:
   duc_db_data:
+  redis_data:
+  rabbitmq_data:

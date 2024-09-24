@@ -3,11 +3,15 @@ package com.andsemedodev.externalducmicroservice.dto;
 import com.andsemedodev.externalducmicroservice.validator.ValidDucRequest;
 import jakarta.validation.constraints.NotNull;
 
+import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.List;
 
 @ValidDucRequest
 public class DucRequestDto {
+
+    private String requestId;
+
     @NotNull(message = "pValor é obrigatório")
     private Integer pValor;
     @NotNull(message = "pRecebedoria é obrigatório")
@@ -29,6 +33,14 @@ public class DucRequestDto {
     private String notas;
 
     public DucRequestDto() {
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
     }
 
     public Integer getpValor() {
@@ -149,5 +161,26 @@ public class DucRequestDto {
 
     public void setNotas(String notas) {
         this.notas = notas;
+    }
+
+    @Override
+    public String toString() {
+        return "DucRequestDto{" +
+                "pValor=" + pValor +
+                ", pRecebedoria='" + pRecebedoria + '\'' +
+                ", pNif=" + pNif +
+                ", pObs='" + pObs + '\'' +
+                ", pCodTransacao='" + pCodTransacao + '\'' +
+                ", pCodTransacao1='" + pCodTransacao1 + '\'' +
+                ", pValor1=" + pValor1 +
+                ", pCodTransacao2='" + pCodTransacao2 + '\'' +
+                ", pValor2=" + pValor2 +
+                ", rubricas=" + rubricas +
+                ", flagIsByTransacao=" + flagIsByTransacao +
+                ", instituicao='" + instituicao + '\'' +
+                ", departamento='" + departamento + '\'' +
+                ", plataforma='" + plataforma + '\'' +
+                ", notas='" + notas + '\'' +
+                '}';
     }
 }

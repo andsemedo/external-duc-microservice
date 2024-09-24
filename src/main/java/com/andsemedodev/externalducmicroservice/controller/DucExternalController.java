@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 @CrossOrigin
 @RestController
@@ -58,6 +59,8 @@ public class DucExternalController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public APIResponse<CreateDucResponseDto> createDuc(@Valid @RequestBody DucRequestDto requestDto) {
+
+
         if (requestDto.getFlagIsByTransacao()) {
             return new APIResponse.buildAPIResponse<CreateDucResponseDto>()
                     .setStatus(true)
