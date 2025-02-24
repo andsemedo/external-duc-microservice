@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5400/duc
+    url: jdbc:postgresql://localhost:5440/duc
     username: username
     password: password
   jpa:
@@ -10,11 +10,11 @@ spring:
   data:
     redis:
       host: localhost
-      port: 6379
+      port: 6380
       password: password
   rabbitmq:
     host: localhost
-    port: 5672
+    port: 5680
     username: guest
     password: guest
 
@@ -26,7 +26,10 @@ duc:
   pEmail: odair.fortes@mf.gov.cv
 
 strapi:
-  url: https://54f1c5a6-ce78-4d6b-b4da-a916fab49484.mock.pstmn.io/graphql
+  graphql:
+    url: http://localhost:1337/graphql
+    token: 0ba7bf8d7383fb3f568ea5abd3c72dff3d82d9527bec690a9ebf3f2b675d96df93c644a6df8da9ef464420b008313f5721cde7f651e6c76e3aad9db2cf35eaa99735fa450ac8f29cd5a5f7e1adcd796fc0eb47a458dc77f237da3083338062ec3a2ff47b729f2304aba587d1fcd27df8e7445ee47b3b715fcf7f8a68b4c62ff8
+
 
 auth:
   username: admin
