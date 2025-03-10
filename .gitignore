@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+/duc.log
+
+/docker-compose.yaml
+/duc.log.*.gz

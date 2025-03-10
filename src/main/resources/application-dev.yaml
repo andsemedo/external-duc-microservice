@@ -1,0 +1,45 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5440/duc
+    username: username
+    password: password
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: password
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+duc:
+  service-link: https://api-pdex.gov.cv:8242/t/financas.gov/mfservicesduccreatev3/1.0.3/
+  by-rubrica-url: https://gateway-pdex.gov.cv/t/financas.gov/rubricaidduc/1.0.0/processBancaArrayId
+  by-transacao-url: https://fcd11ecf-a200-497e-9538-49738ca275b0.mock.pstmn.io/t/financas.gov/mfservicesduccreatev3/1.0.3/postProcessBanca
+  token: 160891a0-c761-377a-b922-a39a420929b4
+  pEmail: odair.fortes@mf.gov.cv
+
+strapi:
+  graphql:
+    url: http://localhost:1337/graphql
+    token: 0ba7bf8d7383fb3f568ea5abd3c72dff3d82d9527bec690a9ebf3f2b675d96df93c644a6df8da9ef464420b008313f5721cde7f651e6c76e3aad9db2cf35eaa99735fa450ac8f29cd5a5f7e1adcd796fc0eb47a458dc77f237da3083338062ec3a2ff47b729f2304aba587d1fcd27df8e7445ee47b3b715fcf7f8a68b4c62ff8
+
+
+auth:
+  username: admin
+  password: 123456789
+
+server:
+  error:
+    include-message: always
+
+logging:
+  file:
+    name: duc.log
+    path: ./log/
