@@ -1,6 +1,5 @@
 package com.andsemedodev.externalducmicroservice.service.impl;
 
-import com.andsemedodev.externalducmicroservice.config.RabbitMqConfig;
 import com.andsemedodev.externalducmicroservice.dto.*;
 import com.andsemedodev.externalducmicroservice.exceptions.CustomInternalServerErrorException;
 import com.andsemedodev.externalducmicroservice.exceptions.RecordNotFoundException;
@@ -13,10 +12,14 @@ import com.andsemedodev.externalducmicroservice.repository.DucRepository;
 import com.andsemedodev.externalducmicroservice.repository.DucRubricaRepository;
 import com.andsemedodev.externalducmicroservice.service.impl.responses.DucByTransacaoResponse;
 import com.andsemedodev.externalducmicroservice.service.impl.responses.GenerateDucResponse;
+import com.andsemedodev.externalducmicroservice.service.impl.responses.strapi.StrapiRecebedoria;
+import com.andsemedodev.externalducmicroservice.service.impl.responses.strapi.StrapiRecebedoriaResponse;
+import com.andsemedodev.externalducmicroservice.service.impl.responses.strapi.StrapiRubrica;
 import com.andsemedodev.externalducmicroservice.service.impl.rubrica_request.ProcessBancaArrayId;
 import com.andsemedodev.externalducmicroservice.exceptions.EmptyRubricasException;
 import com.andsemedodev.externalducmicroservice.service.DucExternalService;
 import com.andsemedodev.externalducmicroservice.service.impl.rubrica_request.RubricaRequest;
+import com.andsemedodev.externalducmicroservice.utilities.StrapiQueries;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
@@ -25,21 +28,18 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.FileCopyUtils;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.function.client.ExchangeFilterFunctions;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.util.UriBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class DucExternalServiceImpl implements DucExternalService {
@@ -48,6 +48,7 @@ public class DucExternalServiceImpl implements DucExternalService {
     private final WebClient webClient = WebClient.builder().build();
     private final ObjectMapper objectMapper;
     private final RabbitTemplate rabbitTemplate;
+    private final StrapiServiceImpl strapiService;
 
     @Value("${duc.token}")
     private String token;
@@ -57,16 +58,15 @@ public class DucExternalServiceImpl implements DucExternalService {
     private String byRubricaUrl;
     @Value("${duc.by-transacao-url}")
     private String byTransacaoUrl;
-    @Value("${strapi.url}")
-    private String strapiUrl;
     private final String moeda = "CVE";
 
     private final DucRepository ducRepository;
     private final DucRubricaRepository ducRubricaRepository;
     private final FailedDucProducer failedDucProducer;
 
-    public DucExternalServiceImpl(ObjectMapper objectMapper, DucRepository ducRepository, DucRubricaRepository ducRubricaRepository, RabbitTemplate rabbitTemplate, FailedDucProducer failedDucProducer) {
+    public DucExternalServiceImpl(ObjectMapper objectMapper, StrapiServiceImpl strapiService, DucRepository ducRepository, DucRubricaRepository ducRubricaRepository, RabbitTemplate rabbitTemplate, FailedDucProducer failedDucProducer) {
         this.objectMapper = objectMapper;
+        this.strapiService = strapiService;
         this.ducRepository = ducRepository;
         this.ducRubricaRepository = ducRubricaRepository;
         this.rabbitTemplate = rabbitTemplate;
@@ -77,6 +77,7 @@ public class DucExternalServiceImpl implements DucExternalService {
     public CreateDucResponseDto createDucByTransacao(DucRequestDto requestDto) {
         logger.info("Creating DUC By Transacao");
         // TODO - search for codTransacao1 e codTransacao2 in StrapiCMS
+
         // TODO - cache the strapi data
 
         ResponseEntity<DucByTransacaoResponse> response = createDucRequestByTransacao(byTransacaoUrl, requestDto);
@@ -108,14 +109,18 @@ public class DucExternalServiceImpl implements DucExternalService {
     @Override
     public CreateDucResponseDto createDucByArrayIdRubrica(DucRequestDto requestDto) {
         logger.info("Creating DUC By Array Id Rubrica");
-
         // TODO - search for rubricas in Strapi CMS by its ID and return cod rubrica
-        // TODO - cache the strapi data
-
-        // map p_id_rubricas
         List<RubricasDto> rubricas = requestDto.getRubricas();
         if (rubricas == null || rubricas.isEmpty())
             throw new EmptyRubricasException("Rubricas nao pode ser nulo ou vazio na criação de DUC por array id rubricas");
+
+        List<String> existingRubricas = strapiService.fetchRubricasInRecebedoria(requestDto.getpRecebedoria(), rubricas);
+
+        // verify if all rubricas sent exists in strapi
+        // TODO - cache the strapi data
+
+        // map p_id_rubricas
+
         StringBuilder idRubricas = new StringBuilder();
         StringBuilder vlRubricas = new StringBuilder();
 
@@ -310,18 +315,6 @@ public class DucExternalServiceImpl implements DucExternalService {
         }
 
 
-    }
-
-    public ResponseEntity<String> executesStrapiQuery(String document){
-        ResponseEntity<String> result = this.webClient
-                .post()
-                .uri(strapiUrl)
-//                .header("Authorization", "Bearer " + strapiToken)
-                .bodyValue(Map.of("query", document))
-                .exchangeToMono(response -> response.toEntity(String.class))
-                .block();
-
-        return result;
     }
 
 
