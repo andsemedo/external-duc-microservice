@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   postgres:
-    container_name: db
+    container_name: db_duc
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: duc
@@ -12,7 +12,7 @@ services:
     volumes:
       - duc_db_data:/var/lib/postgresql/duc_db_data
   redis:
-    container_name: redis
+    container_name: redis_duc
     image: redis:7.4.0-alpine
     ports:
       - "6380:6379"
@@ -21,7 +21,7 @@ services:
       - redis_data:/data
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    container_name: rabbitmq
+    container_name: rabbitmq_duc
     ports:
       - 5680:5672
       - 15680:15672
